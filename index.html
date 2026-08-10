@@ -1,0 +1,2243 @@
+<!doctype html>
+<html lang="en" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>산들마을 외벽색채 시뮬레이터 V13</title>
+<style>:root {
+  color-scheme: light dark;
+  background-color: transparent !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --main-surface-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: light-dark(rgb(26 28 31), rgb(255 255 255));
+  --card: color-mix(in oklab, var(--foreground) 5%, transparent);
+  --card-foreground: var(--foreground);
+  --popover: light-dark(rgb(255 255 255), rgb(45 45 45));
+  --popover-foreground: var(--foreground);
+  --primary: light-dark(rgb(51 156 255), rgb(131 195 255));
+  --primary-foreground: light-dark(rgb(255 255 255), rgb(13 13 13));
+  --secondary: light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%));
+  --secondary-foreground: var(--foreground);
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: light-dark(
+    rgb(26 28 31 / 49.4%),
+    rgb(255 255 255 / 49.8%)
+  );
+  --accent: light-dark(rgb(229 242 255), rgb(13 39 63));
+  --accent-foreground: var(--primary);
+  --destructive: light-dark(rgb(226 85 7), rgb(255 133 73));
+  --border: light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%));
+  --input: light-dark(
+    rgb(26 28 31 / 11.8%),
+    color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+  );
+  --ring: light-dark(rgb(51 156 255), rgb(131 195 255 / 76%));
+  --font-size-base: 14px;
+  --red: light-dark(rgb(186 38 35), rgb(250 66 62));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, "Segoe UI", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --radius: 10px;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17 17'%3E%3Cpath d='M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z'/%3E%3C/svg%3E");
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+  --color-background-primary: var(--background);
+  --color-text-primary: var(--foreground);
+  --color-border-secondary: var(--border);
+}
+
+:root[data-visualize-standalone] {
+  background-color: var(--background) !important;
+}
+
+/* Generic mobile code-block hosts provide light/dark mode but no series palette.
+   AppBlock hosts set all six variables themselves. */
+:root:not([data-app-block-surface]) {
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(#f3883b, #f59a56);
+  --viz-series-3: light-dark(#5dc977, #74d58b);
+  --viz-series-4: light-dark(#eb77b1, #f08fc0);
+  --viz-series-5: light-dark(#9b79ec, #aa91ef);
+  --viz-series-6: light-dark(#3ab9b1, #5acbc2);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html > body {
+  margin: 0;
+  padding: 5px;
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+:root:not([data-app-block-surface]) > body {
+  padding: 12px;
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive > .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align="right"]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align="center"]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget > :not(.card) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The bundled tooltip runtime owns [data-tooltip]. AppBlock's CSS-only
+   pseudo-tooltip can widen dense grids even while hidden. */
+main [data-tooltip]::after {
+  content: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls > .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls > .form-label > :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--interactive-label-primary-default, var(--primary-foreground));
+  background: var(--interactive-bg-primary-default, var(--foreground));
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(
+    in srgb,
+    var(--interactive-label-primary-default, var(--primary-foreground)) 50%,
+    transparent
+  );
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type="file"] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type="file"]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type="file"]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type="color"] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type="checkbox"] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type="checkbox"]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type="checkbox"]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: "";
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type="radio"]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: "";
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+    [aria-pressed="true"],
+    [aria-selected="true"],
+    .is-selected
+  ) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed="true"], [aria-selected="true"], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget > svg {
+  width: 100%;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+</style>
+</head>
+<body>
+<section id="sandle-color-simulator" aria-label="산들마을 외벽 색채 시뮬레이터">
+  <style>
+    #sandle-color-simulator {
+      --sim-c1: #efe5d2;
+      --sim-c2: #d7ad91;
+      --sim-c3: #88957d;
+      --sim-c4: #6e5a52;
+      --foreground: #26322d;
+      --muted-foreground: #68736e;
+      --background: #f5f6f2;
+      --card: #ffffff;
+      --card-foreground: #26322d;
+      --border: #d5dcd6;
+      color: var(--foreground);
+      width: 100%;
+      padding: 12px;
+      background: var(--background);
+      font-family: Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", Arial, sans-serif;
+    }
+    #sandle-color-simulator * { box-sizing: border-box; }
+    #sandle-color-simulator .text-small { font-size: 11px; }
+    #sandle-color-simulator .text-muted { color: var(--muted-foreground); }
+    #sandle-color-simulator .btn {
+      appearance: none;
+      min-height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      color: var(--foreground);
+      background: #fff;
+      cursor: pointer;
+      transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    #sandle-color-simulator .btn:hover { border-color: #8fa09a; background: #f7faf8; }
+    #sandle-color-simulator .btn.is-selected {
+      border-color: #375e51;
+      background: #e8f1ed;
+      box-shadow: inset 0 0 0 1px #375e51;
+    }
+    #sandle-color-simulator .sim-shell {
+      display: grid;
+      grid-template-columns: minmax(340px, 390px) minmax(0, 1fr);
+      grid-template-rows: minmax(340px, 3fr) minmax(250px, 2fr);
+      gap: 12px;
+      height: calc(100vh - 24px);
+      min-height: 680px;
+      max-height: 980px;
+    }
+    #sandle-color-simulator .sim-controls {
+      grid-column: 1;
+      grid-row: 1 / 3;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      min-height: 0;
+      overflow: auto;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--card) 94%, transparent);
+    }
+    #sandle-color-simulator .sim-panel-kicker {
+      color: var(--muted-foreground);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    #sandle-color-simulator .sim-panel-title { margin-top: 2px; font-size: 18px; line-height: 1.25; }
+    #sandle-color-simulator .sim-option-section {
+      position: relative;
+      padding: 11px;
+      border: 1px solid #d8e0da;
+      border-radius: 13px;
+      background: linear-gradient(145deg, #fbfcfa, #f4f7f3);
+      box-shadow: 0 2px 8px rgba(45, 67, 57, .045);
+    }
+    #sandle-color-simulator .sim-option-heading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 9px;
+    }
+    #sandle-color-simulator .sim-step-number {
+      display: inline-grid;
+      place-items: center;
+      width: 23px;
+      height: 23px;
+      border-radius: 7px;
+      color: #fff;
+      background: #426759;
+      font-size: 11px;
+      font-weight: 800;
+      box-shadow: 0 2px 5px rgba(55, 94, 81, .18);
+    }
+    #sandle-color-simulator .sim-label { display: block; margin: 0; font-size: 14px; font-weight: 800; letter-spacing: -.02em; }
+    #sandle-color-simulator .sim-helper { display: block; margin-top: 6px; color: var(--muted-foreground); }
+    #sandle-color-simulator .sim-mode-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    #sandle-color-simulator .sim-mode-row .btn { min-width: 0; min-height: 44px; padding-inline: 7px; font-size: 11px; font-weight: 700; line-height: 1.25; }
+    #sandle-color-simulator .sim-style-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    #sandle-color-simulator .sim-style-btn {
+      display: grid;
+      min-width: 0;
+      position: relative;
+      min-height: 51px;
+      align-content: center;
+      gap: 3px;
+      padding: 7px 26px 7px 8px;
+      line-height: 1.15;
+      text-align: left;
+    }
+    #sandle-color-simulator .sim-style-btn strong { font-size: 12px; }
+    #sandle-color-simulator .sim-style-btn small { color: var(--muted-foreground); font-size: 9px; font-weight: 500; }
+    #sandle-color-simulator .sim-style-btn.is-selected::after,
+    #sandle-color-simulator .sim-palette-btn.is-selected::after {
+      content: "✓";
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      display: grid;
+      place-items: center;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      color: #fff;
+      background: #375e51;
+      font-size: 10px;
+      font-weight: 900;
+    }
+    #sandle-color-simulator .sim-palette-row { display: grid; gap: 7px; }
+    #sandle-color-simulator .sim-palette-group-card {
+      overflow: hidden;
+      border: 1px solid #d9e0da;
+      border-radius: 10px;
+      background: rgba(255,255,255,.72);
+    }
+    #sandle-color-simulator .sim-palette-group-card[open] { border-color: #aebdb4; background: #fff; }
+    #sandle-color-simulator .sim-palette-group {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 9px;
+      color: #40594f;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      list-style: none;
+    }
+    #sandle-color-simulator .sim-palette-group::-webkit-details-marker { display: none; }
+    #sandle-color-simulator .sim-palette-group::after {
+      content: "+";
+      display: grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      color: #4a675b;
+      background: #edf3ef;
+      font-size: 13px;
+      line-height: 1;
+    }
+    #sandle-color-simulator .sim-palette-group-card[open] .sim-palette-group::after { content: "−"; }
+    #sandle-color-simulator .sim-palette-group-title {
+      display: grid;
+      min-width: 0;
+      gap: 2px;
+    }
+    #sandle-color-simulator .sim-palette-group-note {
+      color: var(--muted-foreground);
+      font-size: 9px;
+      font-weight: 550;
+      line-height: 1.25;
+    }
+    #sandle-color-simulator .sim-palette-count {
+      margin-left: auto;
+      color: var(--muted-foreground);
+      font-size: 9px;
+      font-weight: 600;
+    }
+    #sandle-color-simulator .sim-palette-items {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
+      padding: 0 7px 7px;
+    }
+    #sandle-color-simulator .sim-palette-btn {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(118px, 42%) minmax(0, 1fr);
+      grid-template-areas:
+        "swatches copy"
+        "roles copy";
+      min-width: 0;
+      justify-items: stretch;
+      align-items: center;
+      gap: 3px 10px;
+      min-height: 66px;
+      padding: 8px 34px 8px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.15;
+      text-align: left;
+      white-space: normal;
+      overflow: hidden;
+    }
+    #sandle-color-simulator .sim-swatches,
+    #sandle-color-simulator .sim-swatch-roles {
+      display: grid;
+      gap: 2px;
+      width: 100%;
+    }
+    #sandle-color-simulator .sim-swatches {
+      grid-area: swatches;
+      grid-template-columns: 58fr 24fr 11fr 7fr;
+    }
+    #sandle-color-simulator .sim-swatch { width: 100%; height: 18px; border: 1px solid rgba(53,70,62,.10); border-radius: 3px; }
+    #sandle-color-simulator .sim-swatch-roles {
+      grid-area: roles;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      color: var(--muted-foreground);
+      font-size: 8px;
+      font-weight: 550;
+      text-align: center;
+    }
+    #sandle-color-simulator .sim-palette-copy { grid-area: copy; display: grid; min-width: 0; gap: 3px; }
+    #sandle-color-simulator .sim-palette-copy strong,
+    #sandle-color-simulator .sim-palette-copy small { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+    #sandle-color-simulator .sim-palette-copy strong { font-size: 11px; }
+    #sandle-color-simulator .sim-palette-copy small { color: var(--muted-foreground); font-size: 9px; font-weight: 500; line-height: 1.3; }
+    #sandle-color-simulator .sim-palette-btn.is-selected::after {
+      top: 50%;
+      right: 8px;
+      transform: translateY(-50%);
+    }
+    #sandle-color-simulator .sim-color-editors {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+    #sandle-color-simulator .sim-color-field { min-width: 0; }
+    #sandle-color-simulator .sim-color-field { font-size: 11px; }
+    #sandle-color-simulator .sim-color-field .form-control-color { width: 100%; height: 30px; padding: 2px; }
+    #sandle-color-simulator .sim-color-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      margin-top: 3px;
+      color: var(--muted-foreground);
+    }
+    #sandle-color-simulator .sim-color-meta span:first-child { display: none; }
+    #sandle-color-simulator .sim-color-meta code { width: 100%; padding: 1px 2px; font-size: 9px; text-align: center; }
+    #sandle-color-simulator .sim-stage {
+      position: relative;
+      overflow: hidden;
+      grid-column: 2;
+      grid-row: 1;
+      min-height: 0;
+      border-radius: 18px;
+      background: #dce8d4;
+      border: 1px solid var(--border);
+    }
+    #sandle-color-simulator .sim-stage svg { position: relative; display: block; width: 100%; height: 100%; min-height: 0; }
+    #sandle-color-simulator .sim-greenbelt { fill: #dce8d4; }
+    #sandle-color-simulator .sim-greenbelt-deep { fill: none; stroke: #c1d4b8; stroke-width: 26; opacity: .74; }
+    #sandle-color-simulator .sim-mountain-line { fill: none; stroke: #9eb493; stroke-width: 1.4; opacity: .72; }
+    #sandle-color-simulator .sim-tree-dot { fill: #b5caaa; opacity: .86; }
+    #sandle-color-simulator .sim-site { fill: #f7f5ee; stroke: #9eae9a; stroke-width: 2.2; }
+    #sandle-color-simulator .sim-site-road { fill: none; stroke: #dedfd9; stroke-width: 20; stroke-linecap: round; stroke-linejoin: round; }
+    #sandle-color-simulator .sim-site-road-line { fill: none; stroke: #b8bdb7; stroke-width: 1.4; stroke-dasharray: 8 7; }
+    #sandle-color-simulator .sim-road { fill: #d2d5d6; stroke: #a8afb1; stroke-width: 1.5; }
+    #sandle-color-simulator .sim-road-line { fill: none; stroke: #ffffff; stroke-width: 2; stroke-dasharray: 14 10; opacity: .9; }
+    #sandle-color-simulator .sim-env-label { fill: #526252; font-size: 13px; font-weight: 650; text-anchor: middle; paint-order: stroke; stroke: rgba(247,245,238,.82); stroke-width: 3px; }
+    #sandle-color-simulator .sim-direction { fill: #37434a; font-size: 12px; font-weight: 700; text-anchor: middle; }
+    #sandle-color-simulator .sim-tower { opacity: 1; }
+    #sandle-color-simulator .sim-tower-footprint {
+      filter: drop-shadow(3px 4px 2px rgba(40, 50, 45, .18));
+      transition: filter .15s ease;
+    }
+    #sandle-color-simulator .sim-tower:hover .sim-tower-footprint {
+      filter: drop-shadow(4px 5px 3px rgba(40, 50, 45, .24));
+    }
+    #sandle-color-simulator .sim-building-face { stroke: rgba(53, 61, 58, .58); stroke-width: 1.35; }
+    #sandle-color-simulator .sim-window-line { stroke: rgba(255,255,255,.64); stroke-width: 1; }
+    #sandle-color-simulator .sim-building-label {
+      fill: var(--foreground);
+      font-size: 13px;
+      font-weight: 700;
+      text-anchor: middle;
+      paint-order: stroke;
+      stroke: rgba(255,255,255,.92);
+      stroke-width: 4px;
+    }
+    #sandle-color-simulator .sim-band-label {
+      fill: var(--foreground);
+      font-size: 12px;
+      font-weight: 500;
+      text-anchor: middle;
+    }
+    #sandle-color-simulator .sim-band-pill { fill: color-mix(in srgb, var(--card) 88%, transparent); stroke: var(--border); }
+    #sandle-color-simulator .sim-caption {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 7px 10px;
+      color: var(--card-foreground);
+      background: color-mix(in srgb, var(--card) 88%, transparent);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+    }
+    #sandle-color-simulator .sim-legend { display: flex; gap: 10px; flex-wrap: wrap; }
+    #sandle-color-simulator .sim-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+    #sandle-color-simulator .sim-dot { width: 11px; height: 11px; border-radius: 50%; }
+    #sandle-color-simulator .sim-ratios {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 7px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border);
+    }
+    #sandle-color-simulator .sim-ratio-block { min-width: 0; }
+    #sandle-color-simulator .sim-ratio-bar { display: flex; height: 12px; overflow: hidden; border-radius: 999px; margin: 6px 0; }
+    #sandle-color-simulator .sim-ratio-segment { height: 100%; transition: width .3s ease, background-color .3s ease; }
+    #sandle-color-simulator .sim-ratio-values { color: var(--muted-foreground); }
+    #sandle-color-simulator .sim-details {
+      grid-column: 2;
+      grid-row: 2;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 7px;
+      min-height: 0;
+      overflow: hidden;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--card) 94%, transparent);
+    }
+    #sandle-color-simulator .sim-details-head { display: flex; justify-content: space-between; align-items: end; gap: 10px; flex-wrap: wrap; }
+    #sandle-color-simulator .sim-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--detail-count, 1), minmax(0, 1fr));
+      gap: 8px;
+      min-height: 0;
+      overflow: auto;
+    }
+    #sandle-color-simulator .sim-detail-card {
+      border: 1px solid var(--border);
+      min-width: 0;
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--background) 90%, transparent);
+      padding: 7px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 6px;
+    }
+    #sandle-color-simulator .sim-detail-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    #sandle-color-simulator .sim-detail-name { font-weight: 700; }
+    #sandle-color-simulator .sim-detail-band {
+      font-size: 12px;
+      line-height: 1;
+      padding: 4px 6px;
+      border-radius: 999px;
+      color: var(--muted-foreground);
+      background: color-mix(in srgb, var(--card) 78%, var(--border));
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    #sandle-color-simulator .sim-detail-views {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 5px;
+      min-height: 0;
+    }
+    #sandle-color-simulator .sim-detail-grid[data-count="1"] .sim-detail-views { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    #sandle-color-simulator .sim-view-panel {
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      overflow: hidden;
+      background: color-mix(in srgb, var(--card) 96%, transparent);
+    }
+    #sandle-color-simulator .sim-view-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 25px;
+      padding: 4px 6px;
+      font-size: 10px;
+      font-weight: 700;
+      border-bottom: 1px solid var(--border);
+    }
+    #sandle-color-simulator .sim-view-title small {
+      color: var(--muted-foreground);
+      font-size: 8px;
+      font-weight: 500;
+    }
+    #sandle-color-simulator .sim-detail-preview {
+      border-radius: 8px;
+      overflow: hidden;
+      background: linear-gradient(180deg, #dbe8f6 0%, #f5f7fb 62%, #eef3e7 100%);
+    }
+    #sandle-color-simulator .sim-detail-preview svg { display: block; width: 100%; height: 100%; min-height: 76px; max-height: 132px; }
+    #sandle-color-simulator .sim-detail-ratio {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 4px;
+      font-size: 11px;
+      color: var(--muted-foreground);
+    }
+    #sandle-color-simulator .sim-detail-chip { display: grid; gap: 3px; justify-items: center; }
+    #sandle-color-simulator .sim-detail-chip span:first-child { width: 100%; height: 9px; border-radius: 999px; }
+    #sandle-color-simulator .sim-detail-note {
+      color: var(--muted-foreground);
+      font-size: 10px;
+      line-height: 1.35;
+    }
+    @media (max-width: 920px) {
+      #sandle-color-simulator .sim-shell { grid-template-columns: 270px minmax(0, 1fr); }
+      #sandle-color-simulator .sim-detail-grid { grid-template-columns: minmax(260px, 1fr); }
+      #sandle-color-simulator .sim-detail-grid[data-count="1"] .sim-detail-views { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 620px) {
+      #sandle-color-simulator { padding: 8px; }
+      #sandle-color-simulator .sim-shell { display: block; height: auto; max-height: none; min-height: 0; }
+      #sandle-color-simulator .sim-controls,
+      #sandle-color-simulator .sim-stage,
+      #sandle-color-simulator .sim-details { margin-bottom: 12px; }
+      #sandle-color-simulator .sim-controls { overflow: visible; padding: 11px; }
+      #sandle-color-simulator .sim-color-editors { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #sandle-color-simulator .sim-ratios { grid-template-columns: 1fr; }
+      #sandle-color-simulator .sim-stage { min-height: 430px; }
+      #sandle-color-simulator .sim-stage svg { min-height: 430px; }
+      #sandle-color-simulator .sim-detail-card { padding: 10px; }
+      #sandle-color-simulator .sim-detail-views { gap: 7px; }
+    }
+    @media (max-width: 460px) {
+      #sandle-color-simulator { padding: 5px; }
+      #sandle-color-simulator .sim-controls { padding: 8px; border-radius: 12px; }
+      #sandle-color-simulator .sim-option-section { padding: 9px; }
+      #sandle-color-simulator .sim-mode-row { grid-template-columns: minmax(0, 1fr); }
+      #sandle-color-simulator .sim-style-row { grid-template-columns: minmax(0, 1fr); }
+      #sandle-color-simulator .sim-stage,
+      #sandle-color-simulator .sim-stage svg { min-height: 360px; }
+      #sandle-color-simulator .sim-detail-views,
+      #sandle-color-simulator .sim-detail-grid[data-count="1"] .sim-detail-views { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 360px) {
+      #sandle-color-simulator .sim-palette-btn {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "swatches" "roles" "copy";
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #sandle-color-simulator .sim-tower,
+      #sandle-color-simulator .sim-ratio-segment { transition: none; }
+    }
+  </style>
+
+  <div class="sim-shell">
+    <div class="sim-controls" aria-label="색채 설정">
+      <div>
+        <div class="sim-panel-kicker">SANDLE COLOR PLAN</div>
+        <h1 class="sim-panel-title">산들마을 외벽 색채 비교</h1>
+        <div class="text-small text-muted">적용 단계·측면 디자인·컬러셋을 각각 골라 전체 조망과 실제형 입면을 비교합니다.</div>
+      </div>
+      <div class="sim-option-section">
+        <div class="sim-option-heading"><span class="sim-step-number">1</span><span class="sim-label">적용 방식</span></div>
+        <div class="sim-mode-row" role="group" aria-label="적용 단계 선택">
+          <button class="btn sim-mode is-selected" type="button" data-mode="uniform" aria-pressed="true">16개 동 전체 동일</button>
+          <button class="btn sim-mode" type="button" data-mode="two" aria-pressed="false">2단계 · 밝음 / 진함</button>
+          <button class="btn sim-mode" type="button" data-mode="three" aria-pressed="false">3단계 · 밝음 / 중간 / 진함</button>
+        </div>
+      </div>
+
+      <div class="sim-option-section">
+        <div class="sim-option-heading"><span class="sim-step-number">2</span><span class="sim-label">측면 디자인 스타일</span></div>
+        <div class="sim-style-row" role="group" aria-label="측면 디자인 스타일 선택">
+          <button class="btn sim-style-btn is-selected" type="button" data-style="vendor01" aria-pressed="true"><strong>업체01</strong><small>큰 면 + 우측 강조</small></button>
+          <button class="btn sim-style-btn" type="button" data-style="vendor02" aria-pressed="false"><strong>업체02</strong><small>양끝 기본 + 내부 분할</small></button>
+          <button class="btn sim-style-btn" type="button" data-style="vendor03" aria-pressed="false"><strong>업체03</strong><small>넓은 세로 면 분할</small></button>
+          <button class="btn sim-style-btn" type="button" data-style="sandle04" aria-pressed="false"><strong>제안04</strong><small>중앙축 + 양옆 가는 띠</small></button>
+          <button class="btn sim-style-btn" type="button" data-style="sandle05" aria-pressed="false"><strong>제안05</strong><small>비대칭 겹면 + 끝선</small></button>
+        </div>
+        <span class="sim-helper text-small">디자인을 고른 뒤 아래 컬러셋만 바꿔 조합할 수 있습니다.</span>
+      </div>
+
+      <div class="sim-option-section">
+        <div class="sim-option-heading"><span class="sim-step-number">3</span><span class="sim-label">4색 컬러셋</span></div>
+        <div class="sim-palette-row" id="sandle-palette-row" role="group" aria-label="컬러셋 선택"></div>
+        <span class="sim-helper text-small">산들 제안은 비슷한 계조를 늘어놓지 않고, 서로 다른 색이 함께 어울리는 17개 조합으로 다시 추렸습니다. 미리보기 폭은 기본·보조·강조·포인트의 권장 면적 차이를 반영합니다.</span>
+      </div>
+
+      <div class="sim-color-editors" aria-label="개별 색상 조정">
+        <label class="sim-color-field form-label" for="sandle-c1">기본색
+          <input class="form-control form-control-color sim-color-input" id="sandle-c1" type="color" value="#f5e9dc" data-index="0">
+          <span class="sim-color-meta text-small"><span>넓은 면</span><code id="sandle-hex-0">#F3EADB</code></span>
+        </label>
+        <label class="sim-color-field form-label" for="sandle-c2">보조색
+          <input class="form-control form-control-color sim-color-input" id="sandle-c2" type="color" value="#d89c7a" data-index="1">
+          <span class="sim-color-meta text-small"><span>보조 면</span><code id="sandle-hex-1">#D89C7A</code></span>
+        </label>
+        <label class="sim-color-field form-label" for="sandle-c3">강조색
+          <input class="form-control form-control-color sim-color-input" id="sandle-c3" type="color" value="#83957b" data-index="2">
+          <span class="sim-color-meta text-small"><span>강조 면</span><code id="sandle-hex-2">#83957B</code></span>
+        </label>
+        <label class="sim-color-field form-label" for="sandle-c4">포인트색
+          <input class="form-control form-control-color sim-color-input" id="sandle-c4" type="color" value="#5e6b55" data-index="3">
+          <span class="sim-color-meta text-small"><span>세로선·최상층</span><code id="sandle-hex-3">#5E6B55</code></span>
+        </label>
+      </div>
+
+      <div>
+        <span class="sim-label">구역별 색상 비중</span>
+        <div class="sim-ratios" id="sandle-ratios" aria-label="구역별 색상 비율"></div>
+      </div>
+    </div>
+
+    <div class="sim-stage">
+      <svg id="sandle-site-svg" viewBox="0 0 860 640" role="img" aria-labelledby="sandle-svg-title sandle-svg-desc">
+        <title id="sandle-svg-title">산들마을 16개 동 외벽 색채 적용 예상도</title>
+        <desc id="sandle-svg-desc">첨부된 실제 동 배치도에서 201동부터 216동까지 동 번호의 중심 좌표를 읽고, 현재 그림의 단지 경계 안으로 같은 비율로 옮겼습니다. 남쪽은 도로이고 북쪽과 양옆은 반원 형태의 산과 녹지로 둘러싸여 있습니다. 선택한 네 가지 색상과 단계별 비율은 아파트 외벽에만 적용됩니다.</desc>
+        <defs id="sandle-defs"></defs>
+        <rect class="sim-greenbelt" x="0" y="0" width="860" height="640"></rect>
+        <path class="sim-greenbelt-deep" d="M82 501C63 411 69 308 115 220C165 124 265 55 367 28C507 -8 678 22 765 128C831 208 837 333 821 498"></path>
+        <path class="sim-mountain-line" d="M68 466C54 371 77 271 131 191C191 102 288 53 385 35C520 10 673 49 751 151C807 223 817 337 801 466"></path>
+        <path class="sim-mountain-line" d="M43 453C31 351 59 245 122 161C192 69 299 22 405 10C550 -6 703 47 782 160C833 234 845 341 829 457"></path>
+        <circle class="sim-tree-dot" cx="91" cy="278" r="8"></circle><circle class="sim-tree-dot" cx="65" cy="359" r="6"></circle><circle class="sim-tree-dot" cx="137" cy="170" r="7"></circle>
+        <circle class="sim-tree-dot" cx="238" cy="72" r="7"></circle><circle class="sim-tree-dot" cx="320" cy="37" r="6"></circle><circle class="sim-tree-dot" cx="570" cy="37" r="8"></circle>
+        <circle class="sim-tree-dot" cx="716" cy="102" r="7"></circle><circle class="sim-tree-dot" cx="801" cy="251" r="7"></circle><circle class="sim-tree-dot" cx="817" cy="387" r="6"></circle>
+        <path class="sim-site" d="M352 45C455 23 584 38 681 105C756 157 794 247 794 354L791 524C783 551 765 568 735 572C617 570 510 548 397 528L247 504C163 490 112 452 98 395C81 327 103 257 153 198C208 133 281 66 352 45Z"></path>
+        <text class="sim-env-label" x="430" y="30">북쪽 · 산·녹지</text>
+        <text class="sim-env-label" x="70" y="306" transform="rotate(-84 70 306)">서쪽 · 산·녹지</text>
+        <text class="sim-env-label" x="808" y="323" transform="rotate(86 808 323)">동쪽 · 산·녹지</text>
+        <g transform="translate(806 46)"><path d="M0 24L8 0L16 24L8 19Z" fill="#37434a"></path><text class="sim-direction" x="8" y="-6">N</text></g>
+        <path class="sim-site-road" d="M190 425C202 372 220 325 254 286C288 247 334 221 387 213C437 205 484 208 527 223C574 240 610 272 635 316C656 355 666 400 669 447C672 489 670 527 667 572" style="stroke-width:18px"></path>
+        <path class="sim-site-road-line" d="M190 425C202 372 220 325 254 286C288 247 334 221 387 213C437 205 484 208 527 223C574 240 610 272 635 316C656 355 666 400 669 447C672 489 670 527 667 572"></path>
+
+        <path class="sim-road" d="M0 515C158 526 321 544 480 566C624 586 748 606 860 622V640H0Z"></path>
+        <path class="sim-road-line" d="M0 561C136 574 291 590 446 610C523 620 596 629 662 636"></path>
+        <text class="sim-env-label" x="438" y="604" transform="rotate(8 438 604)">남쪽 · 도로</text>
+        <g id="sandle-band-labels"></g>
+        <g id="sandle-towers"></g>
+      </svg>
+      <div class="sim-caption text-small">
+        <strong id="sandle-current-state">16개 동 전체 동일 · 업체01 · 현재 아이보리와 살구</strong>
+        <div class="sim-legend" aria-label="색상 역할 범례">
+          <span class="sim-legend-item"><span class="sim-dot" style="background:var(--sim-c1)"></span>기본</span>
+          <span class="sim-legend-item"><span class="sim-dot" style="background:var(--sim-c2)"></span>보조</span>
+          <span class="sim-legend-item"><span class="sim-dot" style="background:var(--sim-c3)"></span>강조</span>
+          <span class="sim-legend-item"><span class="sim-dot" style="background:var(--sim-c4)"></span>포인트</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sim-details" aria-labelledby="sandle-detail-title">
+      <div class="sim-details-head">
+        <div>
+          <strong id="sandle-detail-title">실제형 상세 입면</strong>
+          <div class="text-small text-muted">정면·좌측·우측·동번호 측벽을 같은 건물 모델로 재구성한 비교용 입면입니다.</div>
+        </div>
+        <div class="text-small text-muted" id="sandle-detail-state">현재 적용방식 기준으로 4개 방향을 표시합니다.</div>
+      </div>
+      <div class="sim-detail-grid" id="sandle-detail-grid" aria-label="구역별 상세 입면 보드 목록"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+      const root = document.getElementById("sandle-color-simulator");
+      if (!root) return;
+
+      const palettes = [
+        { group: "산들 제안 · 현재색을 살린 조화", name: "현재 아이보리와 살구", note: "지금의 따뜻함에 올리브와 부드러운 브릭 포인트", colors: ["#EFE5D2", "#D7AD91", "#88957D", "#A47A68"] },
+        { group: "산들 제안 · 현재색을 살린 조화", name: "살구와 청회색", note: "살구색을 살리면서 중간 밝기의 청회색으로 균형", colors: ["#F0E6D4", "#D6AC98", "#83979F", "#718993"] },
+        { group: "산들 제안 · 현재색을 살린 조화", name: "살구와 이끼", note: "아이보리·살구에 이끼색과 부드러운 나무색", colors: ["#EEE3CF", "#D3A98E", "#8B9271", "#9A7B67"] },
+        { group: "산들 제안 · 현재색을 살린 조화", name: "살구와 벽돌", note: "기존 살구를 벽돌빛과 옅은 청록회색으로 연결", colors: ["#F0E6D5", "#D8B19D", "#A27162", "#829B97"] },
+        { group: "산들 제안 · 현재색을 살린 조화", name: "살구와 소프트 네이비", note: "따뜻한 바탕에 너무 어둡지 않은 소프트 네이비", colors: ["#EFE6D7", "#D4AA99", "#AAA69B", "#748995"] },
+
+        { group: "산들 제안 · 자연색을 섞은 조화", name: "세이지와 클레이", note: "크림 바탕에 잎색·흙빛·옅은 청록을 함께 사용", colors: ["#EEE7D8", "#B8C1AB", "#B47E68", "#78938D"] },
+        { group: "산들 제안 · 자연색을 섞은 조화", name: "물안개와 황토", note: "샌드·옅은 물빛·황토·중간 돌색의 조합", colors: ["#ECE3D3", "#B7C6C8", "#AE895B", "#7D8B87"] },
+        { group: "산들 제안 · 자연색을 섞은 조화", name: "유칼립투스와 브릭", note: "회백색 바탕에 연한 녹색·벽돌빛·더스티 플럼", colors: ["#ECE8DD", "#AEC1B6", "#A67465", "#8D858D"] },
+        { group: "산들 제안 · 자연색을 섞은 조화", name: "하늘과 올리브", note: "오트밀 바탕에 흐린 하늘·올리브·부드러운 나무색", colors: ["#EEE5D6", "#B8C6CF", "#8D9673", "#9A7A66"] },
+
+        { group: "산들 제안 · 익숙한 아파트색", name: "아이보리·네이비·브릭", note: "웜그레이에 청회색과 중간 밝기의 브릭 포인트", colors: ["#EFE7D9", "#C3C0B8", "#647985", "#A87868"] },
+        { group: "산들 제안 · 익숙한 아파트색", name: "크림·블루그레이·코코아", note: "크림과 스톤 위에 흐린 블루와 부드러운 코코아", colors: ["#F0E9DE", "#C7C4BB", "#718A95", "#8A7165"] },
+        { group: "산들 제안 · 익숙한 아파트색", name: "베이지·올리브·브론즈", note: "고전적인 베이지에 올리브와 중간 톤 브론즈", colors: ["#ECE2D1", "#C7B7A4", "#7F896F", "#9A7A60"] },
+        { group: "산들 제안 · 익숙한 아파트색", name: "오프화이트·로즈브라운·슬레이트", note: "밝은 회백색에 로즈브라운과 부드러운 슬레이트", colors: ["#EFECE4", "#C3CDD0", "#8A6A63", "#7D8591"] },
+
+        { group: "산들 제안 · 또렷하지만 차분한 조화", name: "물빛과 더스티 코랄", note: "아이보리에 흐린 물빛·코랄·중간 청회색", colors: ["#F0E8DC", "#B9CBCE", "#B97F70", "#738B93"] },
+        { group: "산들 제안 · 또렷하지만 차분한 조화", name: "세이지와 머스터드", note: "버터 크림에 연한 잎색·황토·부드러운 청회색", colors: ["#F1E9DB", "#BDC4AA", "#A58959", "#789099"] },
+        { group: "산들 제안 · 또렷하지만 차분한 조화", name: "파우더 블루와 클레이", note: "그레이지 바탕에 파우더 블루·흙빛·중간 올리브", colors: ["#ECE8DF", "#BAC8CE", "#A87867", "#818D76"] },
+        { group: "산들 제안 · 또렷하지만 차분한 조화", name: "더스티 로즈와 청록", note: "아이보리·연한 장미·브릭·부드러운 청록", colors: ["#EFE7DD", "#D0B8B4", "#987168", "#78948E"] },
+
+        { group: "업체 제안", name: "업체 01", note: "업체 원안의 차가운 회색과 남색 계열", colors: ["#F3F0EC", "#C6C7C2", "#929493", "#2B313F"] },
+        { group: "업체 제안", name: "업체 02", note: "업체 원안의 중성 회색 계열", colors: ["#E7E7DF", "#BBBCB6", "#9A988C", "#474646"] },
+        { group: "업체 제안", name: "업체 03", note: "업체 원안의 따뜻한 그레이지 계열", colors: ["#E2DBD0", "#B5AEA5", "#7D7167", "#564943"] }
+      ];
+
+      const paletteGroupNotes = {
+        "산들 제안 · 현재색을 살린 조화": "현재 아이보리·살구색을 버리지 않고 다듬은 안",
+        "산들 제안 · 자연색을 섞은 조화": "녹색·흙색·물빛을 서로 다른 색으로 조합한 안",
+        "산들 제안 · 익숙한 아파트색": "크림·그레이 바탕에 네이비·브릭·브론즈를 더한 안",
+        "산들 제안 · 또렷하지만 차분한 조화": "색 차이는 보이되 외벽에서 튀지 않게 낮춘 안",
+        "업체 제안": "업체가 제시한 기존 3개 컬러셋"
+      };
+
+      const profiles = {
+        uniform: { front: [60, 25, 10, 5], middle: [60, 25, 10, 5], rear: [60, 25, 10, 5] },
+        two: { front: [68, 22, 8, 2], middle: [68, 22, 8, 2], rear: [32, 18, 30, 20] },
+        three: { front: [72, 20, 6, 2], middle: [50, 25, 17, 8], rear: [30, 16, 31, 23] }
+      };
+
+      const stageStyles = {
+        uniform: {
+          front: { key: "balanced", label: "전체 동일 배색", side: 3, top: 1, topHeight: .08, darkScale: 1, accentScale: 1, secondaryScale: 1 }
+        },
+        two: {
+          front: { key: "light", label: "1단계 · 밝은 배색", side: 1, top: 1, topHeight: .05, darkScale: .28, accentScale: .48, secondaryScale: .68 },
+          middle: { key: "light", label: "1단계 · 밝은 배색", side: 1, top: 1, topHeight: .05, darkScale: .28, accentScale: .48, secondaryScale: .68 },
+          rear: { key: "strong", label: "2단계 · 진한 배색", side: 3, top: 3, topHeight: .17, darkScale: 1.35, accentScale: 1.25, secondaryScale: 1.05 }
+        },
+        three: {
+          front: { key: "light", label: "1단계 · 밝은 배색", side: 1, top: 1, topHeight: .045, darkScale: .22, accentScale: .4, secondaryScale: .58 },
+          middle: { key: "medium", label: "2단계 · 중간 배색", side: 2, top: 2, topHeight: .10, darkScale: .68, accentScale: .9, secondaryScale: 1 },
+          rear: { key: "strong", label: "3단계 · 진한 배색", side: 3, top: 3, topHeight: .19, darkScale: 1.42, accentScale: 1.3, secondaryScale: 1.08 }
+        }
+      };
+
+      const modeNames = {
+        uniform: "16개 동 전체 동일",
+        two: "2단계 · 밝음 / 진함",
+        three: "3단계 · 밝음 / 중간 / 진함"
+      };
+
+      const styleNames = {
+        vendor01: "업체01",
+        vendor02: "업체02",
+        vendor03: "업체03",
+        sandle04: "제안04",
+        sandle05: "제안05"
+      };
+
+      const bandNames = { front: "전면부", middle: "중간부", rear: "후면부" };
+      /*
+       * 동 번호 중심점의 상대 위치는 첨부 배치도를 기준으로 잡되,
+       * X/Y를 서로 다른 비율로 늘리지 않고 동일 배율로 축소했다.
+       * 그래서 201~216동의 전체 형태가 원본 지도처럼 세로로 길게 유지된다.
+       * 아래 x/y는 SVG(viewBox 860x640) 안에서의 최종 중심 좌표다.
+       */
+      const towers = [
+        { id: 216, x: 440.8, y: 70.0,  w: 70, h: 23, angle: 4,   shape: "u",      band: "rear" },
+        { id: 215, x: 401.6, y: 141.1, w: 64, h: 23, angle: 35,  shape: "offset", band: "rear" },
+        { id: 206, x: 510.2, y: 154.9, w: 66, h: 23, angle: -39, shape: "offset", band: "rear" },
+        { id: 214, x: 314.7, y: 201.5, w: 67, h: 23, angle: 38,  shape: "offset", band: "rear" },
+        { id: 205, x: 592.5, y: 219.5, w: 65, h: 23, angle: -42, shape: "offset", band: "rear" },
+        { id: 213, x: 266.0, y: 273.5, w: 68, h: 23, angle: 34,  shape: "offset", band: "middle" },
+        { id: 207, x: 484.3, y: 264.2, w: 66, h: 23, angle: 37,  shape: "offset", band: "middle" },
+        { id: 209, x: 405.7, y: 294.0, w: 63, h: 23, angle: -41, shape: "offset", band: "middle" },
+        { id: 204, x: 646.0, y: 293.0, w: 64, h: 23, angle: -42, shape: "offset", band: "middle" },
+        { id: 208, x: 530.8, y: 337.7, w: 67, h: 23, angle: 35,  shape: "offset", band: "middle" },
+        { id: 212, x: 236.0, y: 365.5, w: 72, h: 23, angle: 2,   shape: "bar",    band: "front" },
+        { id: 210, x: 397.1, y: 392.9, w: 67, h: 23, angle: 37,  shape: "offset", band: "front" },
+        { id: 203, x: 658.0, y: 396.0, w: 72, h: 23, angle: 0,   shape: "bar",    band: "front" },
+        { id: 211, x: 509.0, y: 436.9, w: 69, h: 23, angle: 36,  shape: "offset", band: "front" },
+        { id: 202, x: 658.0, y: 468.0, w: 72, h: 23, angle: 0,   shape: "bar",    band: "front" },
+        { id: 201, x: 657.0, y: 543.0, w: 72, h: 23, angle: 0,   shape: "bar",    band: "front" }
+      ];
+
+      const defaultPaletteIndex = palettes.findIndex(function (palette) { return palette.name === "현재 아이보리와 살구"; });
+      let state = { mode: "uniform", style: "vendor01", palette: defaultPaletteIndex, colors: palettes[defaultPaletteIndex].colors.slice() };
+      const openPaletteGroups = new Set(["산들 제안 · 현재색을 살린 조화", "업체 제안"]);
+      const paletteRow = root.querySelector("#sandle-palette-row");
+      const defs = root.querySelector("#sandle-defs");
+      const towerLayer = root.querySelector("#sandle-towers");
+      const labelLayer = root.querySelector("#sandle-band-labels");
+      const ratios = root.querySelector("#sandle-ratios");
+      const detailGrid = root.querySelector("#sandle-detail-grid");
+      const detailState = root.querySelector("#sandle-detail-state");
+      const ns = "http://www.w3.org/2000/svg";
+
+      function getPaletteLabel() {
+        if (state.palette < 0) return "사용자 색상";
+        return palettes[state.palette].group.replace("산들 제안 · ", "") + " · " + palettes[state.palette].name;
+      }
+
+      function makeSvg(tag, attrs) {
+        const el = document.createElementNS(ns, tag);
+        Object.keys(attrs).forEach(function (key) { el.setAttribute(key, String(attrs[key])); });
+        return el;
+      }
+
+      function renderPaletteButtons() {
+        paletteRow.innerHTML = "";
+        const groups = [];
+        palettes.forEach(function (palette, index) {
+          let group = groups.find(function (item) { return item.name === palette.group; });
+          if (!group) {
+            group = { name: palette.group, items: [] };
+            groups.push(group);
+          }
+          group.items.push({ palette: palette, index: index });
+        });
+        if (state.palette >= 0) openPaletteGroups.add(palettes[state.palette].group);
+        groups.forEach(function (group) {
+          const details = document.createElement("details");
+          details.className = "sim-palette-group-card";
+          details.open = openPaletteGroups.has(group.name);
+          const summary = document.createElement("summary");
+          summary.className = "sim-palette-group";
+          summary.innerHTML = '<span class="sim-palette-group-title"><span>' + group.name + '</span><span class="sim-palette-group-note">' + (paletteGroupNotes[group.name] || "") + '</span></span><small class="sim-palette-count">' + group.items.length + '개</small>';
+          const items = document.createElement("div");
+          items.className = "sim-palette-items";
+          group.items.forEach(function (item) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "btn sim-palette-btn" + (item.index === state.palette ? " is-selected" : "");
+            button.setAttribute("aria-pressed", item.index === state.palette ? "true" : "false");
+            button.dataset.palette = String(item.index);
+            const chips = item.palette.colors.map(function (color, colorIndex) {
+              const roles = ["기본", "보조", "강조", "포인트"];
+              return '<span class="sim-swatch" title="' + roles[colorIndex] + ' ' + color + '" style="background:' + color + '"></span>';
+            }).join("");
+            button.innerHTML = '<span class="sim-swatches" aria-hidden="true">' + chips + '</span><span class="sim-swatch-roles" aria-hidden="true"><span>기본</span><span>보조</span><span>강조</span><span>포인트</span></span><span class="sim-palette-copy"><strong>' + item.palette.name + '</strong><small>' + item.palette.note + '</small></span>';
+            items.appendChild(button);
+          });
+          details.appendChild(summary);
+          details.appendChild(items);
+          details.addEventListener("toggle", function () {
+            if (details.open) openPaletteGroups.add(group.name);
+            else openPaletteGroups.delete(group.name);
+          });
+          paletteRow.appendChild(details);
+        });
+      }
+
+      function updateGradients() {
+        defs.innerHTML = "";
+        ["front", "middle", "rear"].forEach(function (band) {
+          const gradient = makeSvg("linearGradient", { id: "sandle-gradient-" + band, x1: "0%", y1: "0%", x2: "100%", y2: "0%" });
+          const profile = profiles[state.mode][band];
+          let total = 0;
+          profile.forEach(function (amount, index) {
+            gradient.appendChild(makeSvg("stop", { offset: total + "%", "stop-color": state.colors[index] }));
+            total += amount;
+            gradient.appendChild(makeSvg("stop", { offset: total + "%", "stop-color": state.colors[index] }));
+          });
+          defs.appendChild(gradient);
+        });
+      }
+
+      function renderTower(tower) {
+        const x = tower.x - tower.w / 2;
+        const y = tower.y - tower.h / 2;
+        const group = makeSvg("g", { class: "sim-tower", transform: "rotate(" + tower.angle + " " + tower.x + " " + tower.y + ")", "aria-label": tower.id + "동, " + bandNames[tower.band] });
+        const footprint = makeSvg("g", { class: "sim-tower-footprint" });
+        const fill = "url(#sandle-gradient-" + tower.band + ")";
+        footprint.appendChild(makeSvg("rect", { class: "sim-building-face", x: x, y: y, width: tower.w, height: tower.h, rx: 4, fill: fill }));
+
+        if (tower.shape === "offset") {
+          footprint.appendChild(makeSvg("rect", {
+            class: "sim-building-face",
+            x: x + tower.w * 0.56,
+            y: y - 5,
+            width: tower.w * 0.25,
+            height: tower.h + 10,
+            rx: 3,
+            fill: fill
+          }));
+        } else if (tower.shape === "u") {
+          footprint.appendChild(makeSvg("rect", { class: "sim-building-face", x: x + 3, y: y - 6, width: 15, height: tower.h + 12, rx: 3, fill: fill }));
+          footprint.appendChild(makeSvg("rect", { class: "sim-building-face", x: x + tower.w - 18, y: y - 6, width: 15, height: tower.h + 12, rx: 3, fill: fill }));
+        }
+        group.appendChild(footprint);
+        group.appendChild(makeSvg("line", { class: "sim-window-line", x1: x + 6, y1: tower.y - 4, x2: x + tower.w - 6, y2: tower.y - 4 }));
+        group.appendChild(makeSvg("line", { class: "sim-window-line", x1: x + 6, y1: tower.y + 4, x2: x + tower.w - 6, y2: tower.y + 4 }));
+        const name = makeSvg("text", { class: "sim-building-label", x: tower.x, y: tower.y + 4, transform: "rotate(" + (-tower.angle) + " " + tower.x + " " + tower.y + ")" });
+        name.textContent = tower.id;
+        group.appendChild(name);
+        return group;
+      }
+
+      function renderTowers() {
+        towerLayer.innerHTML = "";
+        towers.slice().sort(function (a, b) { return a.y - b.y; }).forEach(function (tower) {
+          towerLayer.appendChild(renderTower(tower));
+        });
+      }
+
+      function renderBandLabels() {
+        labelLayer.innerHTML = "";
+        const labels = state.mode === "uniform"
+          ? [{ x: 175, y: 175, label: "16개 동 동일 배색" }]
+          : state.mode === "two"
+            ? [{ x: 278, y: 482, label: "전·중 통합" }, { x: 663, y: 114, label: "후면 · 북측" }]
+            : [{ x: 618, y: 548, label: "전면 · 남측 도로" }, { x: 260, y: 354, label: "중간" }, { x: 663, y: 114, label: "후면 · 북측" }];
+        labels.forEach(function (item) {
+          const width = item.label.length * 13 + 26;
+          labelLayer.appendChild(makeSvg("rect", { class: "sim-band-pill", x: item.x - width / 2, y: item.y - 17, width: width, height: 28, rx: 14 }));
+          const text = makeSvg("text", { class: "sim-band-label", x: item.x, y: item.y + 2 });
+          text.textContent = item.label;
+          labelLayer.appendChild(text);
+        });
+      }
+
+      function renderRatios() {
+        ratios.innerHTML = "";
+        const bands = getVisibleBands();
+        bands.forEach(function (band, visibleIndex) {
+          const values = getBandProfile(band);
+          const block = document.createElement("div");
+          block.className = "sim-ratio-block";
+          const title = getBandTitle(band, visibleIndex);
+          const bar = values.map(function (value, index) {
+            return '<span class="sim-ratio-segment" style="width:' + value + "%" + ";background:" + state.colors[index] + '"></span>';
+          }).join("");
+          block.innerHTML = "<strong>" + title + '</strong><div class="sim-ratio-bar" aria-label="' + values.join(", ") + "퍼센트" + '">' + bar + '</div><div class="sim-ratio-values text-small">기본 ' + values[0] + "% · 보조 " + values[1] + "% · 강조 " + values[2] + "% · 포인트 " + values[3] + "%</div>";
+          ratios.appendChild(block);
+        });
+      }
+
+      function getVisibleBands() {
+        if (state.mode === "uniform") return ["front"];
+        if (state.mode === "two") return ["front", "rear"];
+        return ["front", "middle", "rear"];
+      }
+
+      function getBandTitle(band, visibleIndex) {
+        if (state.mode === "uniform") return "전체 16개 동";
+        if (state.mode === "two" && visibleIndex === 0) return "전면부 + 중간부";
+        return bandNames[band];
+      }
+
+      function getBandProfile(band) {
+        return profiles[state.mode][band];
+      }
+
+      function getStageStyle(band) {
+        if (state.mode === "uniform") return stageStyles.uniform.front;
+        return stageStyles[state.mode][band];
+      }
+
+      function getDesignKey() {
+        return state.style;
+      }
+
+      function buildFacadeSegments(x, y, width, height, profile, clipId, band) {
+        const design = getDesignKey();
+        const stage = getStageStyle(band);
+        let layout;
+        if (design === "vendor01") layout = { darkStart: 0, darkWidth: .31, accentStart: .31, accentWidth: 0, secondaryStart: .70, secondaryWidth: .075, stripe: .49 };
+        else if (design === "vendor02") layout = { darkStart: .015, darkWidth: .17, accentStart: .205, accentWidth: .20, secondaryStart: .66, secondaryWidth: .205, stripe: .50 };
+        else if (design === "vendor03") layout = { darkStart: .01, darkWidth: .21, accentStart: .245, accentWidth: .19, secondaryStart: .64, secondaryWidth: .22, stripe: .48 };
+        else if (design === "sandle04") layout = { darkStart: .07, darkWidth: .12, accentStart: .35, accentWidth: .27, secondaryStart: .72, secondaryWidth: .085, stripe: .51 };
+        else if (design === "sandle05") layout = { darkStart: .02, darkWidth: .27, accentStart: .31, accentWidth: .085, secondaryStart: .73, secondaryWidth: .18, stripe: .57 };
+        else layout = { darkStart: 0, darkWidth: .12, accentStart: .18, accentWidth: .18, secondaryStart: .62, secondaryWidth: .16, stripe: .50 };
+        const majorIndex = stage.key === "light" ? 1 : (stage.key === "medium" ? 2 : 3);
+        const accentIndex = stage.key === "light" ? 1 : 2;
+        const zones = [
+          [layout.darkStart, layout.darkWidth * stage.darkScale, majorIndex],
+          [layout.accentStart, layout.accentWidth * stage.accentScale, accentIndex],
+          [layout.secondaryStart, layout.secondaryWidth * stage.secondaryScale, 1]
+        ];
+        const clip = clipId ? ' clip-path="url(#' + clipId + ')"' : '';
+        let parts = '<rect x="' + x + '" y="' + y + '" width="' + width + '" height="' + height + '" fill="' + state.colors[0] + '"' + clip + '></rect>';
+        zones.forEach(function (zone) {
+          if (zone[1] <= 0) return;
+          const zx = x + width * Math.min(.96, zone[0]);
+          const zw = Math.max(3, width * Math.min(.42, zone[1]));
+          parts += '<rect x="' + zx.toFixed(2) + '" y="' + y + '" width="' + zw.toFixed(2) + '" height="' + height + '" fill="' + state.colors[zone[2]] + '"' + clip + '></rect>';
+        });
+        parts += '<rect x="' + (x + width * layout.stripe).toFixed(2) + '" y="' + y + '" width="' + Math.max(3, width * .055).toFixed(2) + '" height="' + height + '" fill="rgba(251,251,248,.9)"' + clip + '></rect>';
+        if (/^(vendor0[123]|sandle0[45])$/.test(design)) {
+          parts += '<rect x="' + (x + width * .93).toFixed(2) + '" y="' + y + '" width="' + Math.max(2.5, width * .026).toFixed(2) + '" height="' + height + '" fill="rgba(250,249,245,.9)"' + clip + '></rect>';
+        }
+        return parts;
+      }
+
+      function buildBalconyBands(x, y, width, height, columns, rows, clipId) {
+        let parts = '';
+        const cellW = width / columns;
+        const cellH = height / rows;
+        for (let row = 0; row < rows; row += 1) {
+          for (let column = 0; column < columns; column += 1) {
+            const px = x + column * cellW;
+            const py = y + row * cellH;
+            parts += '<rect x="' + (px + cellW * .19).toFixed(2) + '" y="' + (py + cellH * .18).toFixed(2) + '" width="' + (cellW * .61).toFixed(2) + '" height="' + (cellH * .48).toFixed(2) + '" rx=".55" fill="rgba(27,42,52,.66)"' + (clipId ? ' clip-path="url(#' + clipId + ')"' : '') + '></rect>';
+            parts += '<line x1="' + (px + cellW * .13).toFixed(2) + '" y1="' + (py + cellH * .78).toFixed(2) + '" x2="' + (px + cellW * .87).toFixed(2) + '" y2="' + (py + cellH * .78).toFixed(2) + '" stroke="rgba(255,255,255,.62)" stroke-width=".72"' + (clipId ? ' clip-path="url(#' + clipId + ')"' : '') + '></line>';
+          }
+        }
+        return parts;
+      }
+
+      function buildSidePattern(x, y, width, height, uid, band, variant, flip) {
+        const design = getDesignKey();
+        const stage = getStageStyle(band);
+        if (design === "vendor01") {
+          const main = variant === "base" ? state.colors[0] : state.colors[3];
+          const accentRatio = stage.key === "light" ? .11 : (stage.key === "medium" ? .15 : .19);
+          const accentWidth = width * accentRatio;
+          const accentX = flip ? x + width * .05 : x + width - accentWidth - width * .05;
+          let vendorParts = '<rect x="' + x + '" y="' + y + '" width="' + width + '" height="' + height + '" rx="1.5" fill="' + main + '"></rect>';
+          vendorParts += '<rect x="' + accentX.toFixed(2) + '" y="' + y + '" width="' + accentWidth.toFixed(2) + '" height="' + height + '" fill="' + state.colors[2] + '"></rect>';
+          return vendorParts;
+        }
+        if (design === "vendor02") {
+          const centerInset = stage.key === "light" ? .18 : (stage.key === "medium" ? .15 : .12);
+          const edgeWidth = .08;
+          const thinWidth = centerInset - edgeWidth;
+          const centerColor = variant === "point" ? state.colors[3] : state.colors[2];
+          const thinColor = variant === "point" ? state.colors[2] : state.colors[3];
+          let vendorParts = '<rect x="' + x + '" y="' + y + '" width="' + width + '" height="' + height + '" rx="1.5" fill="' + state.colors[0] + '"></rect>';
+          vendorParts += '<rect x="' + (x + width * centerInset).toFixed(2) + '" y="' + y + '" width="' + (width * (1 - centerInset * 2)).toFixed(2) + '" height="' + height + '" fill="' + centerColor + '"></rect>';
+          vendorParts += '<rect x="' + (x + width * edgeWidth).toFixed(2) + '" y="' + y + '" width="' + (width * thinWidth).toFixed(2) + '" height="' + height + '" fill="' + thinColor + '"></rect>';
+          vendorParts += '<rect x="' + (x + width * (1 - centerInset)).toFixed(2) + '" y="' + y + '" width="' + (width * thinWidth).toFixed(2) + '" height="' + height + '" fill="' + thinColor + '"></rect>';
+          return vendorParts;
+        }
+        if (design === "vendor03") {
+          const accentRatio = stage.key === "light" ? .14 : (stage.key === "medium" ? .18 : .22);
+          const pointRatio = stage.key === "light" ? .50 : (stage.key === "medium" ? .54 : .58);
+          let vendorParts = '<rect x="' + x + '" y="' + y + '" width="' + width + '" height="' + height + '" rx="1.5" fill="' + state.colors[0] + '"></rect>';
+          if (variant === "point") {
+            vendorParts += '<rect x="' + x + '" y="' + y + '" width="' + (width * accentRatio).toFixed(2) + '" height="' + height + '" fill="' + state.colors[2] + '"></rect>';
+            vendorParts += '<rect x="' + (x + width * accentRatio).toFixed(2) + '" y="' + y + '" width="' + (width * pointRatio).toFixed(2) + '" height="' + height + '" fill="' + state.colors[3] + '"></rect>';
+          } else {
+            vendorParts += '<rect x="' + (x + width * (1 - accentRatio)).toFixed(2) + '" y="' + y + '" width="' + (width * accentRatio).toFixed(2) + '" height="' + height + '" fill="' + state.colors[2] + '"></rect>';
+          }
+          return vendorParts;
+        }
+        if (design === "sandle04") {
+          const centerWidth = stage.key === "light" ? .36 : (stage.key === "medium" ? .42 : .48);
+          const centerStart = (1 - centerWidth) / 2;
+          const centerColor = variant === "point" ? state.colors[3] : state.colors[1];
+          const edgeColor = variant === "point" ? state.colors[1] : state.colors[3];
+          let proposedParts = '<rect x="' + x + '" y="' + y + '" width="' + width + '" height="' + height + '" rx="1.5" fill="' + state.colors[0] + '"></rect>';
+          proposedParts += '<rect x="' + (x + width * centerStart).toFixed(2) + '" y="' + y + '" width="' + (width * centerWidth).toFixed(2) + '" height="' + height + '" fill="' + centerColor + '"></rect>';
+          proposedParts += '<rect x="' + (x + width * (flip ? centerStart + centerWidth : centerStart - .07)).toFixed(2) + '" y="' + y + '" width="' + (width * .07).toFixed(2) + '" height="' + height + '" fill="' + state.colors[2] + '"></rect>';
+          proposedParts += '<rect x="' + (x + width * (flip ? .08 : .82)).toFixed(2) + '" y="' + y + '" width="' + (width * .10).toFixed(2) + '" height="' + height + '" fill="' + edgeColor + '"></rect>';
+          return proposedParts;
+        }
+        if (design === "sandle05") {
+          const blockWidth = stage.key === "light" ? .37 : (stage.key === "medium" ? .43 : .49);
+          const blockX = flip ? x + width * (1 - blockWidth) : x;
+          const blockColor = variant === "point" ? state.colors[3] : state.colors[1];
+          const endX = flip ? x + width * .06 : x + width * .79;
+          const seamX = flip ? blockX - width * .07 : blockX + width * blockWidth;
+          let proposedParts = '<rect x="' + x + '" y="' + y + '" width="' + width + '" height="' + height + '" rx="1.5" fill="' + state.colors[0] + '"></rect>';
+          proposedParts += '<rect x="' + blockX.toFixed(2) + '" y="' + y + '" width="' + (width * blockWidth).toFixed(2) + '" height="' + height + '" fill="' + blockColor + '"></rect>';
+          proposedParts += '<rect x="' + seamX.toFixed(2) + '" y="' + y + '" width="' + (width * .07).toFixed(2) + '" height="' + height + '" fill="' + state.colors[2] + '"></rect>';
+          proposedParts += '<rect x="' + endX.toFixed(2) + '" y="' + y + '" width="' + (width * .15).toFixed(2) + '" height="' + height + '" fill="' + (variant === "point" ? state.colors[1] : state.colors[3]) + '"></rect>';
+          return proposedParts;
+        }
+        const major = state.colors[stage.key === "light" ? 1 : (stage.key === "medium" ? 2 : 3)];
+        const minor = design === "vendor01" ? state.colors[0] : (design === "vendor02" ? state.colors[2] : state.colors[1]);
+        const stripeWidth = design === "vendor01" ? width * .13 : (design === "vendor02" ? width * .19 : width * .23);
+        const stripeX = flip ? x + width - stripeWidth - width * .08 : x + width * .08;
+        let parts = '<rect x="' + x + '" y="' + y + '" width="' + width + '" height="' + height + '" rx="1.5" fill="' + major + '"></rect>';
+        parts += '<rect x="' + stripeX.toFixed(2) + '" y="' + y + '" width="' + stripeWidth.toFixed(2) + '" height="' + height + '" fill="' + minor + '"></rect>';
+        if (design === "vendor02") parts += '<rect x="' + (flip ? x + width * .15 : x + width * .66).toFixed(2) + '" y="' + y + '" width="' + (width * .16).toFixed(2) + '" height="' + height + '" fill="' + state.colors[1] + '"></rect>';
+        if (design === "vendor03") parts += '<rect x="' + (flip ? x + width * .17 : x + width * .69).toFixed(2) + '" y="' + y + '" width="' + (width * .12).toFixed(2) + '" height="' + height + '" fill="' + state.colors[2] + '"></rect>';
+        parts += '<rect x="' + x + '" y="' + y + '" width="' + width + '" height="' + Math.max(6, height * stage.topHeight).toFixed(2) + '" fill="' + state.colors[stage.top] + '"></rect>';
+        return parts;
+      }
+
+      function buildWindowGrid(x, y, width, height, columns, rows, clipId) {
+        let windows = '';
+        const gapX = width / columns;
+        const gapY = height / rows;
+        for (let row = 0; row < rows; row += 1) {
+          for (let column = 0; column < columns; column += 1) {
+            windows += '<rect x="' + (x + column * gapX + gapX * .27).toFixed(2) + '" y="' + (y + row * gapY + gapY * .24).toFixed(2) + '" width="' + (gapX * .46).toFixed(2) + '" height="' + Math.max(2.4, gapY * .38).toFixed(2) + '" rx=".7" fill="rgba(33,48,58,.58)"' + (clipId ? ' clip-path="url(#' + clipId + ')"' : '') + '></rect>';
+          }
+        }
+        return windows;
+      }
+
+      function buildSceneBase(uid) {
+        return ''
+          + '<defs><linearGradient id="sky-' + uid + '" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#a9c3df"></stop><stop offset="63%" stop-color="#edf2f6"></stop><stop offset="100%" stop-color="#e6eddc"></stop></linearGradient></defs>'
+          + '<rect width="320" height="210" fill="url(#sky-' + uid + ')"></rect>'
+          + '<circle cx="272" cy="30" r="18" fill="rgba(255,248,220,.55)"></circle>'
+          + '<path d="M0 171C44 154 84 158 126 172C171 187 235 152 320 165V210H0Z" fill="#d5e1ce"></path>'
+          + '<path d="M0 188C52 176 99 181 146 192C207 206 259 178 320 180V210H0Z" fill="#a8bea0"></path>';
+      }
+
+      function buildFrontElevation(profile, uid, band) {
+        const clipLeft = 'front-left-' + uid;
+        const clipMain = 'front-main-' + uid;
+        const clipRight = 'front-right-' + uid;
+        return ''
+          + buildSceneBase(uid)
+          + '<defs><clipPath id="' + clipLeft + '"><polygon points="28,61 82,40 82,186 28,193"></polygon></clipPath><clipPath id="' + clipMain + '"><polygon points="82,31 225,42 225,190 82,186"></polygon></clipPath><clipPath id="' + clipRight + '"><polygon points="225,42 284,61 284,179 225,190"></polygon></clipPath></defs>'
+          + '<ellipse cx="158" cy="193" rx="136" ry="11" fill="rgba(50,68,54,.22)"></ellipse>'
+          + buildFacadeSegments(25, 28, 62, 168, profile, clipLeft, band)
+          + buildFacadeSegments(79, 27, 150, 166, profile, clipMain, band)
+          + '<g clip-path="url(#' + clipRight + ')">' + buildSidePattern(222, 38, 66, 157, uid, band, 'point', false) + '</g>'
+          + buildBalconyBands(31, 51, 48, 126, 4, 13, clipLeft)
+          + buildBalconyBands(88, 43, 128, 132, 9, 13, clipMain)
+          + '<polygon points="28,61 82,40 82,186 28,193" fill="none" stroke="rgba(42,48,52,.7)" stroke-width="1.2"></polygon>'
+          + '<polygon points="82,31 225,42 225,190 82,186" fill="none" stroke="rgba(42,48,52,.7)" stroke-width="1.35"></polygon>'
+          + '<polygon points="225,42 284,61 284,179 225,190" fill="none" stroke="rgba(42,48,52,.7)" stroke-width="1.2"></polygon>'
+          + '<polygon points="82,31 225,42 284,61 142,48" fill="rgba(255,255,255,.36)" stroke="rgba(42,48,52,.35)" stroke-width=".8"></polygon>'
+          + '<rect x="149" y="34" width="10" height="153" fill="rgba(250,250,247,.9)" clip-path="url(#' + clipMain + ')"></rect>'
+          + '<rect x="181" y="37" width="4" height="151" fill="rgba(250,250,247,.68)" clip-path="url(#' + clipMain + ')"></rect>'
+          + '<text x="254" y="76" text-anchor="middle" font-size="11" font-weight="800" fill="rgba(255,255,255,.92)">213</text>'
+          + '<text x="164" y="51" text-anchor="middle" font-size="8.5" font-weight="800" fill="rgba(34,43,48,.78)" paint-order="stroke" stroke="rgba(255,255,255,.76)" stroke-width="2">산들마을</text>';
+      }
+
+      function buildPerspectiveElevation(profile, direction, uid, band) {
+        const mirror = direction === 'left';
+        const design = getDesignKey();
+        const clipMain = 'pers-main-' + uid;
+        const clipSide = 'pers-side-' + uid;
+        return ''
+          + buildSceneBase(uid)
+          + '<defs><clipPath id="' + clipMain + '"><polygon points="53,37 220,51 220,190 53,182"></polygon></clipPath><clipPath id="' + clipSide + '"><polygon points="220,51 278,36 278,178 220,190"></polygon></clipPath></defs>'
+          + '<g' + (mirror ? ' transform="translate(320 0) scale(-1 1)"' : '') + '>'
+          + '<ellipse cx="164" cy="192" rx="124" ry="10" fill="rgba(50,68,54,.22)"></ellipse>'
+          + buildFacadeSegments(50, 32, 175, 162, profile, clipMain, band)
+          + '<g clip-path="url(#' + clipSide + ')">' + buildSidePattern(217, 32, 64, 164, uid, band, mirror ? 'base' : 'point', mirror) + '</g>'
+          + buildBalconyBands(60, 47, 151, 128, 10, 13, clipMain)
+          + '<polygon points="53,37 220,51 220,190 53,182" fill="none" stroke="rgba(43,51,55,.68)" stroke-width="1.35"></polygon>'
+          + '<polygon points="220,51 278,36 278,178 220,190" fill="none" stroke="rgba(43,51,55,.68)" stroke-width="1.25"></polygon>'
+          + '<polygon points="53,37 220,51 278,36 112,25" fill="rgba(255,255,255,.4)" stroke="rgba(43,51,55,.34)" stroke-width=".8"></polygon>'
+          + '<rect x="143" y="40" width="11" height="148" fill="rgba(250,250,247,.88)" clip-path="url(#' + clipMain + ')"></rect>'
+          + '<rect x="184" y="45" width="4" height="143" fill="rgba(250,250,247,.68)" clip-path="url(#' + clipMain + ')"></rect>'
+          + '<text x="249" y="73" text-anchor="middle" font-size="11" font-weight="800" fill="' + (/^vendor0[123]$/.test(design) && mirror ? 'rgba(39,45,51,.86)' : 'rgba(255,255,255,.92)') + '">213</text>'
+          + '</g>';
+      }
+
+      function buildSectionElevation(profile, uid, band) {
+        const design = getDesignKey();
+        const stage = getStageStyle(band);
+        let floorLines = '';
+        for (let y = 42; y < 178; y += 11) {
+          floorLines += '<line x1="71" y1="' + y + '" x2="129" y2="' + y + '" stroke="rgba(255,255,255,.4)" stroke-width=".8"></line>';
+          floorLines += '<line x1="191" y1="' + y + '" x2="249" y2="' + y + '" stroke="rgba(255,255,255,.42)" stroke-width=".8"></line>';
+        }
+        return ''
+          + buildSceneBase(uid)
+          + '<ellipse cx="160" cy="190" rx="118" ry="10" fill="rgba(50,68,54,.2)"></ellipse>'
+          + buildSidePattern(68, 24, 64, 164, uid + '-a', band, 'point', false)
+          + buildSidePattern(188, 24, 64, 164, uid + '-b', band, 'base', false)
+          + '<rect x="68" y="24" width="64" height="164" rx="2" fill="none" stroke="rgba(43,51,55,.68)" stroke-width="1.3"></rect>'
+          + '<rect x="188" y="24" width="64" height="164" rx="2" fill="none" stroke="rgba(43,51,55,.68)" stroke-width="1.3"></rect>'
+          + floorLines
+          + '<text x="101" y="50" text-anchor="middle" font-size="12" font-weight="800" fill="rgba(255,255,255,.9)">213</text>'
+          + '<text x="220" y="50" text-anchor="middle" font-size="12" font-weight="800" fill="' + (/^vendor0[123]$/.test(design) ? 'rgba(39,45,51,.86)' : 'rgba(255,255,255,.9)') + '">213</text>'
+          + '<text x="101" y="178" text-anchor="middle" font-size="12" font-weight="800" fill="rgba(255,255,255,.9)">213</text>'
+          + '<text x="220" y="178" text-anchor="middle" font-size="12" font-weight="800" fill="' + (/^vendor0[123]$/.test(design) ? 'rgba(39,45,51,.86)' : 'rgba(255,255,255,.9)') + '">213</text>';
+      }
+
+      function buildDetailPreview(band, view, label) {
+        const profile = getBandProfile(band);
+        const uid = state.mode + '-' + band + '-' + view;
+        let scene = '';
+        if (view === 'front') scene = buildFrontElevation(profile, uid, band);
+        if (view === 'left') scene = buildPerspectiveElevation(profile, 'left', uid, band);
+        if (view === 'right') scene = buildPerspectiveElevation(profile, 'right', uid, band);
+        if (view === 'section') scene = buildSectionElevation(profile, uid, band);
+        return '<svg viewBox="0 0 320 210" preserveAspectRatio="xMidYMid meet" role="img" aria-label="' + label + '">' + scene + '</svg>';
+      }
+
+      function renderDetailCards() {
+        detailGrid.innerHTML = '';
+        const views = [
+          { key: 'front', name: '정면 투시', hint: '주 입면' },
+          { key: 'left', name: '좌측 투시', hint: '좌측 조망' },
+          { key: 'right', name: '우측 투시', hint: '우측 조망' },
+          { key: 'section', name: '양쪽 측벽', hint: '동번호 면' }
+        ];
+        const visibleBands = getVisibleBands();
+        detailGrid.dataset.count = String(visibleBands.length);
+        detailGrid.style.setProperty('--detail-count', String(visibleBands.length));
+        visibleBands.forEach(function (band, visibleIndex) {
+          const profile = getBandProfile(band);
+          const bandTitle = getBandTitle(band, visibleIndex);
+          const stage = getStageStyle(band);
+          const panels = views.map(function (view) {
+            const label = bandTitle + ' · ' + view.name;
+            return ''
+              + '<section class="sim-view-panel">'
+              + '<div class="sim-view-title"><span>' + view.name + '</span><small>' + view.hint + '</small></div>'
+              + '<div class="sim-detail-preview">' + buildDetailPreview(band, view.key, label) + '</div>'
+              + '</section>';
+          }).join('');
+          const card = document.createElement('article');
+          card.className = 'sim-detail-card';
+          card.innerHTML = ''
+            + '<div class="sim-detail-top"><strong class="sim-detail-name">' + bandTitle + '</strong><span class="sim-detail-band">' + stage.label + '</span></div>'
+            + '<div class="sim-detail-views">' + panels + '</div>'
+            + '<div class="sim-detail-ratio">'
+            + profile.map(function (value, index) {
+              return '<div class="sim-detail-chip"><span style="background:' + state.colors[index] + '"></span><span>' + value + '%</span></div>';
+            }).join('')
+            + '</div>'
+            + '<div class="sim-detail-note">' + (getDesignKey() === 'vendor01'
+              ? '업체 01 기준 · 큰 측벽은 기본색/포인트색, 오른쪽 좁은 면은 강조색입니다. 하단 띠는 사용하지 않습니다.'
+              : getDesignKey() === 'vendor02'
+                ? '업체 02 기준 · 양끝은 기본색으로 고정하고, 한쪽은 얇은 강조색+넓은 포인트색, 다른 쪽은 얇은 포인트색+넓은 강조색입니다. 하단 띠는 사용하지 않습니다.'
+                : getDesignKey() === 'vendor03'
+                  ? '업체 03 기준 · 한쪽은 왼쪽 강조색+가운데 포인트색+오른쪽 기본색, 다른 쪽은 왼쪽·가운데 기본색+오른쪽 강조색입니다. 하단 띠는 사용하지 않습니다.'
+                  : getDesignKey() === 'sandle04'
+                    ? '제안04 · 넓은 중앙축을 중심으로 가는 강조 띠와 반대편 끝색을 배치해, 단정하지만 멀리서도 수직 리듬이 보이도록 구성했습니다.'
+                    : '제안05 · 한쪽에 넓은 색면을 두고 경계의 가는 강조 띠와 반대편 끝선을 겹쳐, 비대칭이지만 안정적으로 보이도록 구성했습니다.') + '</div>';
+          detailGrid.appendChild(card);
+        });
+        detailState.textContent = modeNames[state.mode] + ' · ' + styleNames[state.style] + ' · ' + getPaletteLabel() + ' · ' + visibleBands.length + '개 구역 × 4개 방향';
+      }
+
+      function syncColors() {
+        state.colors.forEach(function (color, index) {
+          root.style.setProperty("--sim-c" + (index + 1), color);
+          root.querySelector("#sandle-c" + (index + 1)).value = color;
+          root.querySelector("#sandle-hex-" + index).textContent = color.toUpperCase();
+        });
+      }
+
+      function render() {
+        syncColors();
+        renderPaletteButtons();
+        updateGradients();
+        renderBandLabels();
+        renderTowers();
+        renderRatios();
+        renderDetailCards();
+        root.querySelector("#sandle-current-state").textContent = modeNames[state.mode] + " · " + styleNames[state.style] + " · " + getPaletteLabel();
+        root.querySelectorAll(".sim-mode").forEach(function (button) {
+          const selected = button.dataset.mode === state.mode;
+          button.classList.toggle("is-selected", selected);
+          button.setAttribute("aria-pressed", selected ? "true" : "false");
+        });
+        root.querySelectorAll(".sim-style-btn").forEach(function (button) {
+          const selected = button.dataset.style === state.style;
+          button.classList.toggle("is-selected", selected);
+          button.setAttribute("aria-pressed", selected ? "true" : "false");
+        });
+      }
+
+      root.addEventListener("click", function (event) {
+        const modeButton = event.target.closest(".sim-mode");
+        if (modeButton) {
+          state.mode = modeButton.dataset.mode;
+          render();
+          return;
+        }
+        const styleButton = event.target.closest(".sim-style-btn");
+        if (styleButton) {
+          state.style = styleButton.dataset.style;
+          render();
+          return;
+        }
+        const paletteButton = event.target.closest(".sim-palette-btn");
+        if (paletteButton) {
+          state.palette = Number(paletteButton.dataset.palette);
+          state.colors = palettes[state.palette].colors.slice();
+          render();
+        }
+      });
+
+      root.querySelectorAll(".sim-color-input").forEach(function (input) {
+        input.addEventListener("input", function () {
+          const index = Number(input.dataset.index);
+          state.colors[index] = input.value.toUpperCase();
+          state.palette = -1;
+          render();
+        });
+      });
+
+      render();
+    }());
+  </script>
+</section>
+
+<script id="codex-visualization-floating-ui-core" src="https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js"></script>
+<script id="codex-visualization-floating-ui-dom" src="https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js"></script>
+<script id="codex-visualization-lucide" async src="https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js"></script>
+<script id="codex-visualization-tooltip">/* oxlint-disable typescript/no-unsafe-argument, typescript/no-unsafe-call, typescript/no-unsafe-return */
+// Runs inside the visualization sandbox, not the host webview.
+(() => {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set(["top", "right", "bottom", "left"]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+
+  const getTrigger = (target) =>
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest("[data-tooltip]")
+      : null;
+  const containsTarget = (trigger, target) =>
+    target?.nodeType != null && trigger.contains(target);
+  const getContent = (trigger) =>
+    trigger.getAttribute("data-tooltip")?.trim() ?? "";
+  const getPlacement = (trigger) => {
+    const placement = trigger.getAttribute("data-tooltip-placement");
+    return tooltipPlacements.has(placement) ? placement : "top";
+  };
+  const getTooltip = () => {
+    if (tooltip == null) {
+      tooltip = document.createElement("div");
+      tooltip.id = tooltipId;
+      tooltip.className = "tooltip";
+      tooltip.setAttribute("role", "tooltip");
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) => {
+    const ids = new Set(
+      (trigger.getAttribute("aria-describedby") ?? "")
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute("aria-describedby");
+    } else {
+      trigger.setAttribute("aria-describedby", [...ids].join(" "));
+    }
+  };
+  const clearOpenTimeout = () => {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) => {
+    clearOpenTimeout();
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) => {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              "--tooltip-available-width",
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              "--tooltip-available-height",
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: "fixed",
+    })
+      .then(({ x, y }) => {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = "visible";
+      })
+      .catch(() => {
+        if (activeTrigger === trigger && request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) => {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = "hidden";
+    floating.style.transform = "translate(0, 0)";
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () => {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) => {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() < skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() => {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) => {
+    if (event.pointerType === "touch") {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handleLeave = (event) => {
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) => {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(":focus-visible")) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) => {
+    if (event.key === "Escape") {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) => {
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () => {
+    closeTooltip(false);
+    document.removeEventListener("pointerover", handlePointerOpen);
+    document.removeEventListener("pointerout", handleLeave);
+    document.removeEventListener("focusin", handleFocusIn);
+    document.removeEventListener("focusout", handleLeave);
+    document.removeEventListener("keydown", handleKeyDown);
+    document.removeEventListener("contextmenu", handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener("pointerover", handlePointerOpen);
+  document.addEventListener("pointerout", handleLeave);
+  document.addEventListener("focusin", handleFocusIn);
+  document.addEventListener("focusout", handleLeave);
+  document.addEventListener("keydown", handleKeyDown);
+  document.addEventListener("contextmenu", handleContextMenu);
+  window.addEventListener("pagehide", destroy, { once: true });
+})();
+</script>
+<script id="codex-visualization-lucide-initialization">(() => {
+  const initialize = () => {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById("codex-visualization-lucide")
+    ?.addEventListener("load", initialize, { once: true });
+})();
+</script>
+</body>
+</html>
